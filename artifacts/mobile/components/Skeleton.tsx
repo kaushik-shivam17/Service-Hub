@@ -24,9 +24,11 @@ export function Skeleton({ width = "100%", height = 16, borderRadius = 8, style 
     return () => animation.stop();
   }, [opacity]);
 
+  const colors = useColors();
+
   return (
     <Animated.View
-      style={[{ width, height, borderRadius, backgroundColor: "#D1D5DB", opacity }, style]}
+      style={[{ width, height, borderRadius, backgroundColor: colors.muted, opacity }, style]}
     />
   );
 }

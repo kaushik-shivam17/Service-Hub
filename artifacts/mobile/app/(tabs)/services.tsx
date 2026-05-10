@@ -32,7 +32,7 @@ export default function ServicesScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border, paddingTop: insets.top + 16 }]}>
         <Text style={[styles.title, { color: colors.text, fontFamily: "Inter_700Bold" }]}>Services</Text>
         <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
           <SearchBar value={search} onChangeText={setSearch} />
@@ -100,7 +100,7 @@ export default function ServicesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { borderBottomWidth: 1, paddingTop: 16 },
+  header: { borderBottomWidth: 1 },
   title: { fontSize: 22, paddingHorizontal: 16, paddingBottom: 12 },
   chips: { paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
   chip: { paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1 },

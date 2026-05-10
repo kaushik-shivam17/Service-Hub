@@ -63,7 +63,7 @@ export function ProviderCard({ provider, onPress, compact }: Props) {
       onPress={handlePress}
     >
       <View style={[styles.avatar, { backgroundColor: provider.color }]}>
-        <Text style={[styles.avatarText, { fontFamily: "Inter_700Bold", fontSize: 20 }]}>{provider.initials}</Text>
+        <Text style={[styles.avatarText, { fontFamily: "Inter_700Bold" }]}>{provider.initials}</Text>
       </View>
       <Text style={[styles.name, { color: colors.text, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
         {provider.name}
@@ -108,7 +108,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 4,
   },
-  avatarText: { color: "#FFFFFF", fontSize: 20 },
+  avatarText: { color: "#FFFFFF", fontSize: 18 },
   name: { fontSize: 14, textAlign: "center" },
   ratingRow: { flexDirection: "row", alignItems: "center", gap: 3 },
   rating: { fontSize: 12 },

@@ -122,7 +122,6 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     marginHorizontal: 16,
     marginBottom: 12,
-    overflow: "hidden",
     padding: 14,
     gap: 10,
   },

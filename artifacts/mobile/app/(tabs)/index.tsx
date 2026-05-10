@@ -70,7 +70,7 @@ export default function HomeScreen() {
     router.push(`/service/${service.id}`);
 
   const handleScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
-    const index = Math.round(e.nativeEvent.contentOffset.x / BANNER_WIDTH);
+    const index = Math.round(e.nativeEvent.contentOffset.x / (BANNER_WIDTH + 16));
     setBannerIndex(index);
   };
 
@@ -107,11 +107,13 @@ export default function HomeScreen() {
           ref={flatRef}
           data={banners}
           horizontal
-          pagingEnabled
           showsHorizontalScrollIndicator={false}
+          snapToInterval={BANNER_WIDTH + 16}
+          decelerationRate="fast"
           onScroll={handleScroll}
           scrollEventThrottle={16}
           keyExtractor={(item) => item.id}
+          contentContainerStyle={{ paddingRight: 16 }}
           renderItem={({ item }) => (
             <LinearGradient colors={item.bg} style={styles.banner}>
               <View style={styles.bannerContent}>

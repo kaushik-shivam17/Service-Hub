@@ -32,7 +32,7 @@ export default function BookingsScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border, paddingTop: insets.top + 16 }]}>
         <Text style={[styles.title, { color: colors.text, fontFamily: "Inter_700Bold" }]}>My Bookings</Text>
         <View style={styles.tabs}>
           {TABS.map((tab) => (
@@ -101,7 +101,7 @@ export default function BookingsScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: { borderBottomWidth: 1, paddingTop: 16 },
+  header: { borderBottomWidth: 1 },
   title: { fontSize: 22, paddingHorizontal: 16, paddingBottom: 12 },
   tabs: { flexDirection: "row" },
   tab: { flex: 1, alignItems: "center", paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: "transparent" },
