@@ -1,0 +1,20 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "E245Y6-wF7QdxKfSTAUnx"
+uri = "file://artifacts/mobile/assets/images/icon.png"
+type = "image"
+title = "urban services app icon"
+
+[[generated]]
+id = "Ktyca5iONyI1JdCcdh58P"
+uri = "file://artifacts/mobile/assets/images/banner1.png"
+type = "image"
+title = "home cleaning banner"
+
+[[generated]]
+id = "k2KG2q1Es_Gz7cupTR36B"
+uri = "file://artifacts/mobile/assets/images/banner2.png"
+type = "image"
+title = "AC repair banner"
