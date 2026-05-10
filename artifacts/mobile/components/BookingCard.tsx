@@ -1,5 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
+import { router } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
@@ -29,6 +30,12 @@ export function BookingCard({ booking, onCancel, onRebook }: Props) {
   const colors = useColors();
   const statusColor = STATUS_COLORS[booking.status];
   const borderColor = STATUS_BORDER[booking.status];
+  const isTrackable = booking.status === "upcoming" || booking.status === "in_progress";
+
+  const handleTrack = () => {
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    router.push(`/booking/status/${booking.id}`);
+  };
 
   return (
     <View
@@ -83,6 +90,17 @@ export function BookingCard({ booking, onCancel, onRebook }: Props) {
           ₹{booking.totalPrice}
         </Text>
         <View style={styles.actions}>
+          {isTrackable && (
+            <Pressable
+              style={[styles.actionBtn, { borderColor: colors.primary, backgroundColor: colors.secondary }]}
+              onPress={handleTrack}
+            >
+              <Feather name="navigation" size={12} color={colors.primary} />
+              <Text style={[styles.actionBtnText, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>
+                Track
+              </Text>
+            </Pressable>
+          )}
           {booking.status === "upcoming" && onCancel && (
             <Pressable
               style={[styles.actionBtn, { borderColor: colors.destructive }]}
@@ -139,7 +157,10 @@ const styles = StyleSheet.create({
   price: { fontSize: 17 },
   actions: { flexDirection: "row", gap: 8 },
   actionBtn: {
-    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    paddingHorizontal: 12,
     paddingVertical: 7,
     borderRadius: 8,
     borderWidth: 1.5,

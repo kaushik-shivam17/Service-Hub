@@ -55,7 +55,7 @@ export default function BookingScreen() {
 
   const canProceed =
     step === 0 ? selectedDate !== "" && selectedTime !== ""
-    : step === 1 ? address.trim().length > 5
+    : step === 1 ? address.trim().length > 5 && address.trim().length <= 500
     : true;
 
   const handleNext = () => {
@@ -67,8 +67,11 @@ export default function BookingScreen() {
     if (!service || !user) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
+    const randomPart = Math.random().toString(36).slice(2, 10).toUpperCase();
+    const bookingId = `BK${Date.now().toString(36).toUpperCase()}${randomPart}`;
+
     const newBooking: Booking = {
-      id: "BK" + Date.now(),
+      id: bookingId,
       serviceId: service.id,
       serviceName: service.name,
       categoryName: service.categoryName,
@@ -76,7 +79,7 @@ export default function BookingScreen() {
       providerName: assignedProvider.name,
       date: selectedDate,
       time: selectedTime,
-      address: address.trim(),
+      address: address.trim().slice(0, 500),
       status: "upcoming",
       totalPrice: service.price,
       createdAt: new Date().toISOString(),
@@ -87,7 +90,10 @@ export default function BookingScreen() {
       Alert.alert(
         "Booking Confirmed!",
         `Your ${service.name} is booked for ${selectedDate} at ${selectedTime}.`,
-        [{ text: "View Bookings", onPress: () => router.replace("/(tabs)/bookings") }]
+        [
+          { text: "View Bookings", onPress: () => router.replace("/(tabs)/bookings") },
+          { text: "Track Booking", onPress: () => router.replace({ pathname: "/booking/status/[bookingId]", params: { bookingId } }) },
+        ]
       );
     } catch {
       Alert.alert("Error", "Failed to confirm booking. Please try again.");

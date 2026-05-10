@@ -32,26 +32,36 @@ export default function RegisterScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
   const handleRegister = async () => {
     if (!name.trim() || !email.trim() || !password.trim()) {
       setError("Please fill in all required fields");
+      return;
+    }
+    if (!EMAIL_REGEX.test(email.trim())) {
+      setError("Please enter a valid email address");
+      return;
+    }
+    if (name.trim().length < 2) {
+      setError("Name must be at least 2 characters");
       return;
     }
     if (password !== confirmPassword) {
       setError("Passwords don't match");
       return;
     }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
       return;
     }
     setError("");
     setLoading(true);
     try {
-      await signUp(email.trim(), password, name.trim(), phone.trim() || undefined);
+      await signUp(email.trim().toLowerCase(), password, name.trim(), phone.trim() || undefined);
       router.replace("/(tabs)");
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Registration failed. Please try again.");
+    } catch {
+      setError("Registration failed. Please check your details and try again.");
     } finally {
       setLoading(false);
     }

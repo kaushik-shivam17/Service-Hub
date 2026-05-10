@@ -104,14 +104,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signIn = async (email: string, password: string) => {
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error("Invalid email or password. Please try again.");
     } else {
       const stored = await AsyncStorage.getItem(MOCK_USER_KEY);
       if (stored) {
         setUser(JSON.parse(stored));
         return;
       }
-      const mockUser: UserProfile = { id: "mock_" + Date.now(), email, name: email.split("@")[0] };
+      const mockId = `mock_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      const mockUser: UserProfile = { id: mockId, email, name: email.split("@")[0] };
       await AsyncStorage.setItem(MOCK_USER_KEY, JSON.stringify(mockUser));
       setUser(mockUser);
     }
@@ -124,9 +125,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         password,
         options: { data: { name, phone: phone ?? null } },
       });
-      if (error) throw new Error(error.message);
+      if (error) throw new Error("Registration failed. Please try again.");
     } else {
-      const mockUser: UserProfile = { id: "mock_" + Date.now(), email, name, phone };
+      const mockId = `mock_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
+      const mockUser: UserProfile = { id: mockId, email, name, phone };
       await AsyncStorage.setItem(MOCK_USER_KEY, JSON.stringify(mockUser));
       setUser(mockUser);
     }
