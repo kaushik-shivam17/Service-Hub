@@ -36,10 +36,10 @@ router.post("/register", async (req, res) => {
       passwordHash,
       name: name.trim(),
       phone: phone?.trim() || null,
-    }).returning({ id: users.id, email: users.email, name: users.name, phone: users.phone });
+    }).returning({ id: users.id, email: users.email, name: users.name, phone: users.phone, role: users.role, workerProviderId: users.workerProviderId });
 
     const token = signToken({ sub: user.id, email: user.email });
-    return res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name, phone: user.phone } });
+    return res.status(201).json({ token, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, workerProviderId: user.workerProviderId } });
   } catch {
     return res.status(500).json({ error: "Registration failed. Please try again." });
   }
@@ -64,7 +64,7 @@ router.post("/login", async (req, res) => {
     }
 
     const token = signToken({ sub: user.id, email: user.email });
-    return res.json({ token, user: { id: user.id, email: user.email, name: user.name, phone: user.phone } });
+    return res.json({ token, user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, workerProviderId: user.workerProviderId } });
   } catch {
     return res.status(500).json({ error: "Login failed. Please try again." });
   }
@@ -72,7 +72,7 @@ router.post("/login", async (req, res) => {
 
 router.get("/me", authenticate, async (req: AuthenticatedRequest, res) => {
   try {
-    const [user] = await db.select({ id: users.id, email: users.email, name: users.name, phone: users.phone })
+    const [user] = await db.select({ id: users.id, email: users.email, name: users.name, phone: users.phone, role: users.role, workerProviderId: users.workerProviderId })
       .from(users).where(eq(users.id, req.userId!)).limit(1);
     if (!user) return res.status(404).json({ error: "User not found" });
     return res.json({ user });
@@ -96,7 +96,7 @@ router.patch("/me", authenticate, async (req: AuthenticatedRequest, res) => {
 
   try {
     const [user] = await db.update(users).set(updates).where(eq(users.id, req.userId!))
-      .returning({ id: users.id, email: users.email, name: users.name, phone: users.phone });
+      .returning({ id: users.id, email: users.email, name: users.name, phone: users.phone, role: users.role, workerProviderId: users.workerProviderId });
     return res.json({ user });
   } catch {
     return res.status(500).json({ error: "Failed to update profile" });

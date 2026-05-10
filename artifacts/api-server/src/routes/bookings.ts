@@ -18,6 +18,19 @@ router.get("/", async (req: AuthenticatedRequest, res) => {
   }
 });
 
+router.get("/:id", async (req: AuthenticatedRequest, res) => {
+  const id = String(req.params.id);
+  try {
+    const [row] = await db.select().from(bookings)
+      .where(and(eq(bookings.id, id), eq(bookings.userId, req.userId!)))
+      .limit(1);
+    if (!row) return res.status(404).json({ error: "Booking not found" });
+    return res.json(toApi(row));
+  } catch {
+    return res.status(500).json({ error: "Failed to fetch booking" });
+  }
+});
+
 router.post("/", async (req: AuthenticatedRequest, res) => {
   const body = req.body as Record<string, unknown>;
   const id = typeof body.id === "string" ? body.id : undefined;

@@ -91,9 +91,19 @@ export const api = {
 
   bookings: {
     list: () => request<Booking[]>("/bookings"),
+    get: (id: string) => request<Booking>(`/bookings/${encodeURIComponent(id)}`),
     create: (booking: Booking) =>
       request<Booking>("/bookings", { method: "POST", body: JSON.stringify(booking) }),
     cancel: (id: string) =>
       request<Booking>(`/bookings/${encodeURIComponent(id)}/cancel`, { method: "PATCH" }),
+  },
+
+  worker: {
+    bookings: () => request<Booking[]>("/worker/bookings"),
+    updateStatus: (id: string, status: string) =>
+      request<Booking>(`/worker/bookings/${encodeURIComponent(id)}/status`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      }),
   },
 };

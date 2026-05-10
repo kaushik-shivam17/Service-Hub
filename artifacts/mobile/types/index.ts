@@ -56,4 +56,6 @@ export interface UserProfile {
   email: string;
   phone?: string;
   addresses?: string[];
+  role?: "client" | "worker";
+  workerProviderId?: string | null;
 }

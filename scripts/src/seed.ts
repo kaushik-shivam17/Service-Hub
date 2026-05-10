@@ -1,3 +1,4 @@
+import bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
 import * as schema from "../../lib/db/src/schema/index.js";
@@ -46,6 +47,15 @@ const providers = [
   { id: "pro_6", name: "Dinesh Yadav", rating: 4.6, reviewCount: 312, experienceYears: 4, specializations: ["Cleaning", "Appliances"], pricePerHour: 300, verified: false, completedJobs: 489, initials: "DY", color: "#0EA5E9" },
 ];
 
+const workerAccounts = [
+  { email: "rajesh@urbanserve.com", name: "Rajesh Kumar", providerId: "pro_1", phone: "+91 98765 43210" },
+  { email: "suresh@urbanserve.com", name: "Suresh Sharma", providerId: "pro_2", phone: "+91 98765 43211" },
+  { email: "amit@urbanserve.com", name: "Amit Singh", providerId: "pro_3", phone: "+91 98765 43212" },
+  { email: "mohan@urbanserve.com", name: "Mohan Das", providerId: "pro_4", phone: "+91 98765 43213" },
+  { email: "vikram@urbanserve.com", name: "Vikram Patel", providerId: "pro_5", phone: "+91 98765 43214" },
+  { email: "dinesh@urbanserve.com", name: "Dinesh Yadav", providerId: "pro_6", phone: "+91 98765 43215" },
+];
+
 async function seed() {
   console.log("Seeding categories...");
   await db.insert(schema.categories).values(categories).onConflictDoNothing();
@@ -56,7 +66,26 @@ async function seed() {
   console.log("Seeding providers...");
   await db.insert(schema.providers).values(providers).onConflictDoNothing();
 
-  console.log("Done! Seeded", categories.length, "categories,", services.length, "services,", providers.length, "providers.");
+  console.log("Seeding worker accounts...");
+  const password = "worker123";
+  const passwordHash = await bcrypt.hash(password, 12);
+
+  for (const w of workerAccounts) {
+    await db.insert(schema.users).values({
+      email: w.email,
+      passwordHash,
+      name: w.name,
+      phone: w.phone,
+      role: "worker",
+      workerProviderId: w.providerId,
+    }).onConflictDoNothing();
+  }
+
+  console.log("\n✓ Seeded", categories.length, "categories,", services.length, "services,", providers.length, "providers");
+  console.log("✓ Seeded", workerAccounts.length, "worker accounts (password: worker123)");
+  console.log("\nWorker login credentials:");
+  workerAccounts.forEach((w) => console.log(`  ${w.email} / worker123  →  ${w.name} (${w.providerId})`));
+
   await pool.end();
 }
 
