@@ -1,5 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 
 import { isSupabaseConfigured, supabase } from "@/lib/supabase";
 import { UserProfile } from "@/types";
@@ -13,6 +13,7 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string, phone?: string) => Promise<void>;
   signOut: () => Promise<void>;
   updateProfile: (updates: Partial<UserProfile>) => Promise<void>;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -22,34 +23,70 @@ const AuthContext = createContext<AuthContextType>({
   signUp: async () => {},
   signOut: async () => {},
   updateProfile: async () => {},
+  refreshProfile: async () => {},
 });
+
+async function fetchProfile(id: string): Promise<Partial<UserProfile>> {
+  if (!supabase) return {};
+  const { data } = await supabase.from("profiles").select("*").eq("id", id).single();
+  if (!data) return {};
+  return { name: data.name, phone: data.phone };
+}
+
+async function upsertProfile(profile: UserProfile): Promise<void> {
+  if (!supabase) return;
+  await supabase.from("profiles").upsert({
+    id: profile.id,
+    email: profile.email,
+    name: profile.name,
+    phone: profile.phone ?? null,
+    updated_at: new Date().toISOString(),
+  });
+}
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const loadUser = useCallback(async (id: string, email: string, metaName?: string) => {
+    let name = metaName ?? email.split("@")[0];
+    let phone: string | undefined;
+    if (isSupabaseConfigured && supabase) {
+      const extra = await fetchProfile(id);
+      if (extra.name) name = extra.name;
+      if (extra.phone) phone = extra.phone;
+    }
+    return { id, email, name, phone };
+  }, []);
+
+  const refreshProfile = useCallback(async () => {
+    if (!user) return;
+    const updated = await loadUser(user.id, user.email, user.name);
+    setUser(updated);
+  }, [user, loadUser]);
+
   useEffect(() => {
     if (isSupabaseConfigured && supabase) {
-      supabase.auth.getSession().then(({ data: { session } }) => {
+      supabase.auth.getSession().then(async ({ data: { session } }) => {
         if (session?.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email ?? "",
-            name: session.user.user_metadata?.name ?? session.user.email?.split("@")[0] ?? "User",
-            phone: session.user.user_metadata?.phone,
-          });
+          const u = await loadUser(
+            session.user.id,
+            session.user.email ?? "",
+            session.user.user_metadata?.name
+          );
+          setUser(u);
         }
         setLoading(false);
       });
 
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
         if (session?.user) {
-          setUser({
-            id: session.user.id,
-            email: session.user.email ?? "",
-            name: session.user.user_metadata?.name ?? session.user.email?.split("@")[0] ?? "User",
-            phone: session.user.user_metadata?.phone,
-          });
+          const u = await loadUser(
+            session.user.id,
+            session.user.email ?? "",
+            session.user.user_metadata?.name
+          );
+          setUser(u);
         } else {
           setUser(null);
         }
@@ -62,18 +99,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
       });
     }
-  }, []);
+  }, [loadUser]);
 
   const signIn = async (email: string, password: string) => {
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw new Error(error.message);
     } else {
-      const mockUser: UserProfile = {
-        id: "mock_" + Date.now(),
-        email,
-        name: email.split("@")[0],
-      };
+      const stored = await AsyncStorage.getItem(MOCK_USER_KEY);
+      if (stored) {
+        setUser(JSON.parse(stored));
+        return;
+      }
+      const mockUser: UserProfile = { id: "mock_" + Date.now(), email, name: email.split("@")[0] };
       await AsyncStorage.setItem(MOCK_USER_KEY, JSON.stringify(mockUser));
       setUser(mockUser);
     }
@@ -84,16 +122,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const { error } = await supabase.auth.signUp({
         email,
         password,
-        options: { data: { name, phone } },
+        options: { data: { name, phone: phone ?? null } },
       });
       if (error) throw new Error(error.message);
     } else {
-      const mockUser: UserProfile = {
-        id: "mock_" + Date.now(),
-        email,
-        name,
-        phone,
-      };
+      const mockUser: UserProfile = { id: "mock_" + Date.now(), email, name, phone };
       await AsyncStorage.setItem(MOCK_USER_KEY, JSON.stringify(mockUser));
       setUser(mockUser);
     }
@@ -112,7 +145,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return;
     const updated = { ...user, ...updates };
     if (isSupabaseConfigured && supabase) {
-      await supabase.auth.updateUser({ data: updates });
+      await supabase.auth.updateUser({ data: { name: updates.name, phone: updates.phone } });
+      await upsertProfile(updated);
     } else {
       await AsyncStorage.setItem(MOCK_USER_KEY, JSON.stringify(updated));
     }
@@ -120,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signUp, signOut, updateProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
