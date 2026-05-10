@@ -187,7 +187,7 @@ export default function HomeScreen() {
 
       {/* Top Professionals */}
       <View style={styles.section}>
-        <SectionHeader title="Top Professionals" onSeeAll={() => {}} />
+        <SectionHeader title="Top Professionals" onSeeAll={() => router.push("/(tabs)/services")} />
         {prosLoading ? (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
             {Array.from({ length: 4 }).map((_, i) => <ProviderCardSkeleton key={i} />)}
@@ -195,7 +195,11 @@ export default function HomeScreen() {
         ) : (
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalList}>
             {allProviders.map((pro) => (
-              <ProviderCard key={pro.id} provider={pro} />
+              <ProviderCard
+                key={pro.id}
+                provider={pro}
+                onPress={() => router.push("/(tabs)/services")}
+              />
             ))}
           </ScrollView>
         )}

@@ -98,8 +98,21 @@ export default function ServiceDetailScreen() {
         {displayProviders.length > 0 && (
           <View style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.text, fontFamily: "Inter_700Bold" }]}>Available Professionals</Text>
+            <Text style={[styles.sectionSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              Tap a professional to book directly with them
+            </Text>
             {displayProviders.map((provider) => (
-              <ProviderCard key={provider.id} provider={provider} compact />
+              <ProviderCard
+                key={provider.id}
+                provider={provider}
+                compact
+                onPress={() =>
+                  router.push({
+                    pathname: "/booking/[serviceId]",
+                    params: { serviceId: service.id, providerId: provider.id },
+                  })
+                }
+              />
             ))}
           </View>
         )}
@@ -140,6 +153,7 @@ const styles = StyleSheet.create({
   priceValue: { fontSize: 16 },
   section: { padding: 16, gap: 12 },
   sectionTitle: { fontSize: 17 },
+  sectionSubtitle: { fontSize: 13, marginTop: -4 },
   description: { fontSize: 14, lineHeight: 22 },
   includesList: { gap: 8 },
   includeItem: { flexDirection: "row", alignItems: "center", gap: 10 },

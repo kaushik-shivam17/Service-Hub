@@ -14,15 +14,15 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { providers, timeSlots } from "@/data/mockData";
+import { timeSlots } from "@/data/mockData";
 import { useAuth } from "@/contexts/AuthContext";
-import { useService } from "@/hooks/useAppData";
+import { useService, useProviders } from "@/hooks/useAppData";
 import { useBookings } from "@/hooks/useBookings";
 import { useColors } from "@/hooks/useColors";
-import { Booking } from "@/types";
+import { Booking, Provider } from "@/types";
 
-const STEPS = ["Date & Time", "Address", "Confirm"] as const;
-type Step = 0 | 1 | 2;
+const STEPS = ["Date & Time", "Professional", "Address", "Confirm"] as const;
+type Step = 0 | 1 | 2 | 3;
 
 function getNextDates() {
   const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -37,25 +37,93 @@ function getNextDates() {
   });
 }
 
+function ProviderRow({
+  provider,
+  selected,
+  onSelect,
+}: {
+  provider: Provider;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const colors = useColors();
+  return (
+    <Pressable
+      style={({ pressed }) => [
+        styles.providerRow,
+        {
+          backgroundColor: selected ? colors.secondary : colors.card,
+          borderColor: selected ? colors.primary : colors.border,
+          borderWidth: selected ? 2 : 1,
+          opacity: pressed ? 0.9 : 1,
+        },
+      ]}
+      onPress={() => {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+        onSelect();
+      }}
+    >
+      <View style={[styles.providerAvatar, { backgroundColor: provider.color }]}>
+        <Text style={[styles.providerInitials, { fontFamily: "Inter_700Bold" }]}>{provider.initials}</Text>
+      </View>
+      <View style={styles.providerInfo}>
+        <View style={styles.providerNameRow}>
+          <Text style={[styles.providerName, { color: colors.text, fontFamily: "Inter_600SemiBold" }]} numberOfLines={1}>
+            {provider.name}
+          </Text>
+          {provider.verified && (
+            <Feather name="check-circle" size={13} color={colors.primary} />
+          )}
+        </View>
+        <View style={styles.providerMeta}>
+          <Feather name="star" size={12} color={colors.rating ?? "#F59E0B"} />
+          <Text style={[styles.providerMetaText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+            {provider.rating} · {provider.experienceYears}y exp · {provider.completedJobs} jobs
+          </Text>
+        </View>
+        <View style={styles.providerTags}>
+          {provider.specializations.slice(0, 2).map((s) => (
+            <View key={s} style={[styles.tag, { backgroundColor: colors.muted }]}>
+              <Text style={[styles.tagText, { color: colors.mutedForeground, fontFamily: "Inter_500Medium" }]}>{s}</Text>
+            </View>
+          ))}
+        </View>
+      </View>
+      <View style={styles.providerRight}>
+        <Text style={[styles.providerPrice, { color: colors.primary, fontFamily: "Inter_700Bold" }]}>
+          ₹{provider.pricePerHour}/hr
+        </Text>
+        <View style={[styles.selectCircle, { borderColor: selected ? colors.primary : colors.border, backgroundColor: selected ? colors.primary : "transparent" }]}>
+          {selected && <Feather name="check" size={12} color="#FFFFFF" />}
+        </View>
+      </View>
+    </Pressable>
+  );
+}
+
 export default function BookingScreen() {
-  const { serviceId } = useLocalSearchParams<{ serviceId: string }>();
+  const { serviceId, providerId: preselectedProviderId } = useLocalSearchParams<{ serviceId: string; providerId?: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
 
   const { data: service, isLoading: serviceLoading } = useService(serviceId);
+  const { data: allProviders = [], isLoading: providersLoading } = useProviders(service?.categoryName);
   const { createBooking } = useBookings(user?.id);
 
-  const assignedProvider = providers[0];
   const [step, setStep] = useState<Step>(0);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedTime, setSelectedTime] = useState("");
+  const [selectedProviderId, setSelectedProviderId] = useState<string>(preselectedProviderId ?? "");
   const [address, setAddress] = useState("");
   const dates = getNextDates();
 
+  const selectedProvider = allProviders.find((p) => p.id === selectedProviderId) ?? allProviders[0];
+
   const canProceed =
     step === 0 ? selectedDate !== "" && selectedTime !== ""
-    : step === 1 ? address.trim().length > 5 && address.trim().length <= 500
+    : step === 1 ? selectedProviderId !== ""
+    : step === 2 ? address.trim().length > 5 && address.trim().length <= 500
     : true;
 
   const handleNext = () => {
@@ -63,8 +131,13 @@ export default function BookingScreen() {
     setStep((step + 1) as Step);
   };
 
+  const handleBack = () => {
+    if (step > 0) setStep((step - 1) as Step);
+    else router.back();
+  };
+
   const handleConfirm = async () => {
-    if (!service || !user) return;
+    if (!service || !user || !selectedProvider) return;
     Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
 
     const randomPart = Math.random().toString(36).slice(2, 10).toUpperCase();
@@ -75,8 +148,8 @@ export default function BookingScreen() {
       serviceId: service.id,
       serviceName: service.name,
       categoryName: service.categoryName,
-      providerId: assignedProvider.id,
-      providerName: assignedProvider.name,
+      providerId: selectedProvider.id,
+      providerName: selectedProvider.name,
       date: selectedDate,
       time: selectedTime,
       address: address.trim().slice(0, 500),
@@ -88,11 +161,15 @@ export default function BookingScreen() {
     try {
       await createBooking.mutateAsync({ booking: newBooking, userId: user.id });
       Alert.alert(
-        "Booking Confirmed!",
-        `Your ${service.name} is booked for ${selectedDate} at ${selectedTime}.`,
+        "Booking Confirmed! 🎉",
+        `${service.name} booked with ${selectedProvider.name} on ${selectedDate} at ${selectedTime}.`,
         [
           { text: "View Bookings", onPress: () => router.replace("/(tabs)/bookings") },
-          { text: "Track Booking", onPress: () => router.replace({ pathname: "/booking/status/[bookingId]", params: { bookingId } }) },
+          {
+            text: "Track Booking",
+            onPress: () =>
+              router.replace({ pathname: "/booking/status/[bookingId]", params: { bookingId } }),
+          },
         ]
       );
     } catch {
@@ -108,11 +185,13 @@ export default function BookingScreen() {
     );
   }
 
+  const LAST_STEP = STEPS.length - 1;
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border, paddingTop: insets.top + 8 }]}>
-        <Pressable style={styles.backBtn} onPress={() => (step > 0 ? setStep((step - 1) as Step) : router.back())} accessibilityLabel="Back">
+        <Pressable style={styles.backBtn} onPress={handleBack} accessibilityLabel="Back">
           <Feather name="arrow-left" size={22} color={colors.text} />
         </Pressable>
         <Text style={[styles.headerTitle, { color: colors.text, fontFamily: "Inter_600SemiBold" }]}>Book Service</Text>
@@ -123,12 +202,32 @@ export default function BookingScreen() {
       <View style={[styles.stepsBar, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
         {STEPS.map((s, i) => (
           <View key={s} style={styles.stepItem}>
-            <View style={[styles.stepDot, { backgroundColor: i <= step ? colors.primary : colors.muted, borderColor: i <= step ? colors.primary : colors.border }]}>
-              {i < step
-                ? <Feather name="check" size={12} color="#FFFFFF" />
-                : <Text style={[styles.stepNum, { color: i === step ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>{i + 1}</Text>}
+            <View
+              style={[
+                styles.stepDot,
+                {
+                  backgroundColor: i <= step ? colors.primary : colors.muted,
+                  borderColor: i <= step ? colors.primary : colors.border,
+                },
+              ]}
+            >
+              {i < step ? (
+                <Feather name="check" size={11} color="#FFFFFF" />
+              ) : (
+                <Text style={[styles.stepNum, { color: i === step ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_600SemiBold" }]}>
+                  {i + 1}
+                </Text>
+              )}
             </View>
-            <Text style={[styles.stepLabel, { color: i <= step ? colors.primary : colors.mutedForeground, fontFamily: i === step ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+            <Text
+              style={[
+                styles.stepLabel,
+                {
+                  color: i <= step ? colors.primary : colors.mutedForeground,
+                  fontFamily: i === step ? "Inter_600SemiBold" : "Inter_400Regular",
+                },
+              ]}
+            >
               {s}
             </Text>
           </View>
@@ -136,6 +235,7 @@ export default function BookingScreen() {
       </View>
 
       <ScrollView contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + 120 }]}>
+        {/* Step 0 — Date & Time */}
         {step === 0 && (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: colors.text, fontFamily: "Inter_700Bold" }]}>Select Date</Text>
@@ -143,10 +243,24 @@ export default function BookingScreen() {
               {dates.map((d) => (
                 <Pressable
                   key={d.value}
-                  style={[styles.chip, { borderColor: selectedDate === d.value ? colors.primary : colors.border, backgroundColor: selectedDate === d.value ? colors.secondary : colors.card }]}
+                  style={[
+                    styles.chip,
+                    {
+                      borderColor: selectedDate === d.value ? colors.primary : colors.border,
+                      backgroundColor: selectedDate === d.value ? colors.secondary : colors.card,
+                    },
+                  ]}
                   onPress={() => setSelectedDate(d.value)}
                 >
-                  <Text style={[styles.chipText, { color: selectedDate === d.value ? colors.primary : colors.text, fontFamily: selectedDate === d.value ? "Inter_600SemiBold" : "Inter_400Regular" }]}>
+                  <Text
+                    style={[
+                      styles.chipText,
+                      {
+                        color: selectedDate === d.value ? colors.primary : colors.text,
+                        fontFamily: selectedDate === d.value ? "Inter_600SemiBold" : "Inter_400Regular",
+                      },
+                    ]}
+                  >
                     {d.label}
                   </Text>
                 </Pressable>
@@ -158,24 +272,74 @@ export default function BookingScreen() {
               {timeSlots.map((t) => (
                 <Pressable
                   key={t}
-                  style={[styles.timeChip, { borderColor: selectedTime === t ? colors.primary : colors.border, backgroundColor: selectedTime === t ? colors.primary : colors.card }]}
+                  style={[
+                    styles.timeChip,
+                    {
+                      borderColor: selectedTime === t ? colors.primary : colors.border,
+                      backgroundColor: selectedTime === t ? colors.primary : colors.card,
+                    },
+                  ]}
                   onPress={() => setSelectedTime(t)}
                 >
-                  <Text style={[styles.timeChipText, { color: selectedTime === t ? "#FFF" : colors.text, fontFamily: "Inter_500Medium" }]}>{t}</Text>
+                  <Text
+                    style={[
+                      styles.timeChipText,
+                      { color: selectedTime === t ? "#FFF" : colors.text, fontFamily: "Inter_500Medium" },
+                    ]}
+                  >
+                    {t}
+                  </Text>
                 </Pressable>
               ))}
             </View>
           </View>
         )}
 
+        {/* Step 1 — Select Professional */}
         {step === 1 && (
+          <View style={styles.stepContent}>
+            <View>
+              <Text style={[styles.stepTitle, { color: colors.text, fontFamily: "Inter_700Bold" }]}>Choose Your Professional</Text>
+              <Text style={[styles.stepSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                All professionals are background-verified
+              </Text>
+            </View>
+            {providersLoading ? (
+              <View style={styles.center}>
+                <ActivityIndicator color={colors.primary} />
+              </View>
+            ) : allProviders.length === 0 ? (
+              <View style={[styles.emptyProviders, { borderColor: colors.border }]}>
+                <Feather name="users" size={32} color={colors.mutedForeground} />
+                <Text style={[styles.emptyText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                  No professionals available right now
+                </Text>
+              </View>
+            ) : (
+              allProviders.map((provider) => (
+                <ProviderRow
+                  key={provider.id}
+                  provider={provider}
+                  selected={selectedProviderId === provider.id}
+                  onSelect={() => setSelectedProviderId(provider.id)}
+                />
+              ))
+            )}
+          </View>
+        )}
+
+        {/* Step 2 — Address */}
+        {step === 2 && (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: colors.text, fontFamily: "Inter_700Bold" }]}>Service Address</Text>
             <Text style={[styles.stepSubtitle, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-              Where should the professional come?
+              Where should {selectedProvider?.name?.split(" ")[0] ?? "the professional"} come?
             </Text>
             <TextInput
-              style={[styles.addressInput, { backgroundColor: colors.card, borderColor: colors.border, color: colors.text, fontFamily: "Inter_400Regular" }]}
+              style={[
+                styles.addressInput,
+                { backgroundColor: colors.card, borderColor: colors.border, color: colors.text, fontFamily: "Inter_400Regular" },
+              ]}
               placeholder="Flat no, building name, street, area, city..."
               placeholderTextColor={colors.mutedForeground}
               value={address}
@@ -183,30 +347,64 @@ export default function BookingScreen() {
               multiline
               numberOfLines={4}
               textAlignVertical="top"
+              maxLength={500}
             />
+            <Text style={[styles.charCount, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+              {address.trim().length}/500
+            </Text>
           </View>
         )}
 
-        {step === 2 && (
+        {/* Step 3 — Confirm */}
+        {step === 3 && selectedProvider && (
           <View style={styles.stepContent}>
             <Text style={[styles.stepTitle, { color: colors.text, fontFamily: "Inter_700Bold" }]}>Booking Summary</Text>
+
+            {/* Provider highlight */}
+            <View style={[styles.providerHighlight, { backgroundColor: colors.secondary, borderColor: colors.primary }]}>
+              <View style={[styles.providerAvatar, { backgroundColor: selectedProvider.color }]}>
+                <Text style={[styles.providerInitials, { fontFamily: "Inter_700Bold" }]}>{selectedProvider.initials}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={[styles.providerName, { color: colors.text, fontFamily: "Inter_600SemiBold" }]}>
+                  {selectedProvider.name}
+                </Text>
+                <View style={styles.providerMeta}>
+                  <Feather name="star" size={12} color={colors.rating ?? "#F59E0B"} />
+                  <Text style={[styles.providerMetaText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                    {selectedProvider.rating} · {selectedProvider.completedJobs} jobs completed
+                  </Text>
+                </View>
+              </View>
+              {selectedProvider.verified && (
+                <View style={[styles.verifiedPill, { backgroundColor: colors.primary }]}>
+                  <Feather name="check-circle" size={11} color="#FFFFFF" />
+                  <Text style={[styles.verifiedPillText, { fontFamily: "Inter_600SemiBold" }]}>Verified</Text>
+                </View>
+              )}
+            </View>
+
             {[
-              { icon: "package", label: "Service", value: service.name },
-              { icon: "user", label: "Professional", value: assignedProvider.name },
-              { icon: "calendar", label: "Date", value: selectedDate },
-              { icon: "clock", label: "Time", value: selectedTime },
-              { icon: "map-pin", label: "Address", value: address },
+              { icon: "package" as const, label: "Service", value: service.name },
+              { icon: "calendar" as const, label: "Date", value: selectedDate },
+              { icon: "clock" as const, label: "Time", value: selectedTime },
+              { icon: "map-pin" as const, label: "Address", value: address },
             ].map((row) => (
               <View key={row.label} style={[styles.summaryRow, { borderBottomColor: colors.border }]}>
                 <View style={[styles.summaryIcon, { backgroundColor: colors.secondary }]}>
-                  <Feather name={row.icon as never} size={16} color={colors.primary} />
+                  <Feather name={row.icon} size={16} color={colors.primary} />
                 </View>
                 <View style={styles.summaryInfo}>
-                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>{row.label}</Text>
-                  <Text style={[styles.summaryValue, { color: colors.text, fontFamily: "Inter_500Medium" }]}>{row.value}</Text>
+                  <Text style={[styles.summaryLabel, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
+                    {row.label}
+                  </Text>
+                  <Text style={[styles.summaryValue, { color: colors.text, fontFamily: "Inter_500Medium" }]}>
+                    {row.value}
+                  </Text>
                 </View>
               </View>
             ))}
+
             <View style={[styles.totalRow, { backgroundColor: colors.secondary, borderRadius: 12 }]}>
               <Text style={[styles.totalLabel, { color: colors.primary, fontFamily: "Inter_600SemiBold" }]}>Total Amount</Text>
               <Text style={[styles.totalValue, { color: colors.primary, fontFamily: "Inter_700Bold" }]}>₹{service.price}</Text>
@@ -221,17 +419,26 @@ export default function BookingScreen() {
             styles.nextBtn,
             { backgroundColor: canProceed ? colors.primary : colors.muted, opacity: pressed ? 0.85 : 1 },
           ]}
-          onPress={step < 2 ? handleNext : handleConfirm}
+          onPress={step < LAST_STEP ? handleNext : handleConfirm}
           disabled={!canProceed || createBooking.isPending}
         >
           {createBooking.isPending ? (
             <ActivityIndicator color="#FFFFFF" />
           ) : (
             <>
-              <Text style={[styles.nextBtnText, { color: canProceed ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_700Bold" }]}>
-                {step < 2 ? "Next" : "Confirm Booking"}
+              <Text
+                style={[
+                  styles.nextBtnText,
+                  { color: canProceed ? "#FFF" : colors.mutedForeground, fontFamily: "Inter_700Bold" },
+                ]}
+              >
+                {step < LAST_STEP ? "Next" : "Confirm Booking"}
               </Text>
-              <Feather name={step < 2 ? "arrow-right" : "check"} size={18} color={canProceed ? "#FFF" : colors.mutedForeground} />
+              <Feather
+                name={step < LAST_STEP ? "arrow-right" : "check"}
+                size={18}
+                color={canProceed ? "#FFF" : colors.mutedForeground}
+              />
             </>
           )}
         </Pressable>
@@ -241,16 +448,35 @@ export default function BookingScreen() {
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, paddingBottom: 12, borderBottomWidth: 1, gap: 12 },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", minHeight: 100 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
   backBtn: { padding: 4 },
   headerTitle: { flex: 1, fontSize: 17, textAlign: "center" },
   headerSpacer: { width: 30 },
-  stepsBar: { flexDirection: "row", justifyContent: "space-around", paddingVertical: 14, borderBottomWidth: 1 },
-  stepItem: { alignItems: "center", gap: 5 },
-  stepDot: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, alignItems: "center", justifyContent: "center" },
-  stepNum: { fontSize: 12 },
-  stepLabel: { fontSize: 11 },
+  stepsBar: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  stepItem: { alignItems: "center", gap: 4, flex: 1 },
+  stepDot: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  stepNum: { fontSize: 11 },
+  stepLabel: { fontSize: 10, textAlign: "center" },
   content: { padding: 16 },
   stepContent: { gap: 14 },
   stepTitle: { fontSize: 18 },
@@ -261,8 +487,76 @@ const styles = StyleSheet.create({
   timeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   timeChip: { paddingHorizontal: 14, paddingVertical: 10, borderRadius: 10, borderWidth: 1.5 },
   timeChipText: { fontSize: 13 },
+  providerRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 14,
+    padding: 14,
+    gap: 12,
+  },
+  providerAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    flexShrink: 0,
+  },
+  providerInitials: { color: "#FFFFFF", fontSize: 17 },
+  providerInfo: { flex: 1, gap: 3 },
+  providerNameRow: { flexDirection: "row", alignItems: "center", gap: 5 },
+  providerName: { fontSize: 15, flex: 1 },
+  providerMeta: { flexDirection: "row", alignItems: "center", gap: 4 },
+  providerMetaText: { fontSize: 12 },
+  providerTags: { flexDirection: "row", gap: 5, flexWrap: "wrap", marginTop: 2 },
+  tag: { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6 },
+  tagText: { fontSize: 10 },
+  providerRight: { alignItems: "flex-end", gap: 8, flexShrink: 0 },
+  providerPrice: { fontSize: 13 },
+  selectCircle: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  emptyProviders: {
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 40,
+    gap: 10,
+  },
+  emptyText: { fontSize: 14 },
+  charCount: { fontSize: 12, textAlign: "right", marginTop: -8 },
   addressInput: { borderWidth: 1.5, borderRadius: 12, padding: 14, fontSize: 15, minHeight: 120 },
-  summaryRow: { flexDirection: "row", alignItems: "flex-start", paddingVertical: 12, borderBottomWidth: 1, gap: 12 },
+  providerHighlight: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1.5,
+    marginBottom: 4,
+  },
+  verifiedPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  verifiedPillText: { color: "#FFFFFF", fontSize: 10 },
+  summaryRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    gap: 12,
+  },
   summaryIcon: { width: 36, height: 36, borderRadius: 10, alignItems: "center", justifyContent: "center" },
   summaryInfo: { flex: 1, gap: 2 },
   summaryLabel: { fontSize: 12 },
@@ -271,6 +565,13 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 16 },
   totalValue: { fontSize: 22 },
   footer: { paddingHorizontal: 16, paddingTop: 12, borderTopWidth: 1 },
-  nextBtn: { borderRadius: 12, paddingVertical: 15, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8 },
+  nextBtn: {
+    borderRadius: 12,
+    paddingVertical: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+  },
   nextBtnText: { fontSize: 16 },
 });
