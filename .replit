@@ -1,4 +1,4 @@
-modules = ["nodejs-24"]
+modules = ["nodejs-24", "postgresql-16"]
 
 [deployment]
 router = "application"
@@ -67,3 +67,11 @@ externalPort = 8081
 [[ports]]
 localPort = 18115
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+JWT_SECRET = "4fb96d694129c5594087cc1f9c39e24979e204ad766b5585d6dbc76f82f432c255ccefddbd1ed5867d7ffc05bd510c2035774abd00dc5718aa965204062d9b70"
+
+[nix]
+channel = "stable-25_05"
