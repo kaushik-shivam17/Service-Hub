@@ -31,6 +31,15 @@ components:
       properties:
         status:
           type: string
+        db:
+          type: string
+        uptime:
+          type: number
+        timestamp:
+          type: string
       required:
         - status
+        - db
+        - uptime
+        - timestamp
 

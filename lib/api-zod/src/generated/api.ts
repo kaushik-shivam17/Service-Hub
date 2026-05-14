@@ -13,4 +13,7 @@ import * as zod from "zod";
  */
 export const HealthCheckResponse = zod.object({
   status: zod.string(),
+  db: zod.string(),
+  uptime: zod.number(),
+  timestamp: zod.string(),
 });

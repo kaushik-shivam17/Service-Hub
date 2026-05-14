@@ -8,4 +8,7 @@
 
 export interface HealthStatus {
   status: string;
+  db: string;
+  uptime: number;
+  timestamp: string;
 }
