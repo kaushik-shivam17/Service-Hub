@@ -1,7 +1,6 @@
 {
   "version": 2,
   "installCommand": "pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm run typecheck:libs",
   "functions": {
     "api/index.ts": {
       "maxDuration": 30,
