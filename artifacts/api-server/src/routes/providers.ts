@@ -1,4 +1,4 @@
-import { db, providers } from "@workspace/db";
+import { db, providers, type Provider } from "@workspace/db";
 import { desc } from "drizzle-orm";
 import { Router } from "express";
 
@@ -10,7 +10,7 @@ router.get("/", async (req, res) => {
     const rows = await db.select().from(providers).orderBy(desc(providers.rating));
     if (categoryName?.trim()) {
       const cat = categoryName.trim().toLowerCase();
-      const filtered = rows.filter((p) =>
+      const filtered = rows.filter((p: Provider) =>
         p.specializations.some(
           (s: string) => s.toLowerCase().includes(cat) || cat.includes(s.toLowerCase())
         )
