@@ -8,14 +8,15 @@
     "esModuleInterop": true,
     "allowSyntheticDefaultImports": true,
     "skipLibCheck": true,
-    "outDir": "dist",
-    "rootDir": "src",
+    "strict": false,
     "noImplicitAny": true,
     "strictNullChecks": true,
-    "alwaysStrict": true
+    "outDir": "../dist/api"
   },
-  "include": ["src"],
+  "include": ["."],
   "references": [
-    { "path": "../lib/db" }
+    { "path": "../artifacts/api-server" },
+    { "path": "../lib/db" },
+    { "path": "../lib/api-zod" }
   ]
 }

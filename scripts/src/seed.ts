@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import { drizzle } from "drizzle-orm/node-postgres";
 import pg from "pg";
-import * as schema from "../../lib/db/src/schema/index.js";
+import { categories as categoriesTable, services as servicesTable, providers as providersTable, users as usersTable } from "@workspace/db";
 
 const { Pool } = pg;
 
@@ -10,7 +10,7 @@ if (!process.env.DATABASE_URL) {
 }
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-const db = drizzle(pool, { schema });
+const db = drizzle(pool);
 
 const categories = [
   { id: "cat_1", name: "Cleaning", icon: "home", iconLibrary: "Feather", color: "#1A56DB", bgColor: "#EFF6FF" },
@@ -58,20 +58,20 @@ const workerAccounts = [
 
 async function seed() {
   console.log("Seeding categories...");
-  await db.insert(schema.categories).values(categories).onConflictDoNothing();
+  await db.insert(categoriesTable).values(categories).onConflictDoNothing();
 
   console.log("Seeding services...");
-  await db.insert(schema.services).values(services).onConflictDoNothing();
+  await db.insert(servicesTable).values(services).onConflictDoNothing();
 
   console.log("Seeding providers...");
-  await db.insert(schema.providers).values(providers).onConflictDoNothing();
+  await db.insert(providersTable).values(providers).onConflictDoNothing();
 
   console.log("Seeding worker accounts...");
   const password = "worker123";
   const passwordHash = await bcrypt.hash(password, 12);
 
   for (const w of workerAccounts) {
-    await db.insert(schema.users).values({
+    await db.insert(usersTable).values({
       email: w.email,
       passwordHash,
       name: w.name,
