@@ -56,10 +56,34 @@ interface AuthResponse {
   user: UserProfile;
 }
 
+interface WorkerAuthResponse extends AuthResponse {
+  provider: {
+    id: string;
+    name: string;
+    initials: string;
+    color: string;
+    specializations: string[];
+    experienceYears: number;
+    pricePerHour: number;
+  };
+}
+
+export interface WorkerRegisterData {
+  name: string;
+  email: string;
+  password: string;
+  phone?: string;
+  specializations: string[];
+  experienceYears: number;
+  pricePerHour: number;
+}
+
 export const api = {
   auth: {
     register: (data: { name: string; email: string; password: string; phone?: string }) =>
       request<AuthResponse>("/auth/register", { method: "POST", body: JSON.stringify(data) }),
+    registerWorker: (data: WorkerRegisterData) =>
+      request<WorkerAuthResponse>("/auth/register/worker", { method: "POST", body: JSON.stringify(data) }),
     login: (email: string, password: string) =>
       request<AuthResponse>("/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }),
     me: () => request<{ user: UserProfile }>("/auth/me"),

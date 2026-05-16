@@ -210,18 +210,39 @@ function NotAWorker() {
   const insets = useSafeAreaInsets();
   const { signOut } = useAuth();
 
+  const handleJoinAsWorker = async () => {
+    await signOut();
+    router.replace("/(auth)/worker-register");
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.background, justifyContent: "center", alignItems: "center", paddingHorizontal: 32, paddingTop: insets.top }]}>
-      <View style={[styles.workerIcon, { backgroundColor: colors.secondary }]}>
-        <Feather name="briefcase" size={36} color={colors.primary} />
-      </View>
+      <LinearGradient
+        colors={["#059669", "#10B981"]}
+        style={styles.workerIconGradient}
+      >
+        <Feather name="briefcase" size={36} color="#FFFFFF" />
+      </LinearGradient>
+
       <Text style={[styles.notWorkerTitle, { color: colors.text, fontFamily: "Inter_700Bold" }]}>Worker Portal</Text>
       <Text style={[styles.notWorkerText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
-        This section is for service professionals. Log in with a worker account to view and manage your assigned jobs.
+        This section is for service professionals. Sign in with a worker account or register to start accepting jobs.
       </Text>
-      <Pressable style={[styles.switchBtn, { backgroundColor: colors.primary }]} onPress={signOut}>
-        <Feather name="log-out" size={15} color="#FFFFFF" />
-        <Text style={[styles.switchBtnText, { fontFamily: "Inter_600SemiBold" }]}>Sign out & switch account</Text>
+
+      <Pressable
+        style={({ pressed }) => [styles.joinBtn, { backgroundColor: "#059669", opacity: pressed ? 0.85 : 1 }]}
+        onPress={handleJoinAsWorker}
+      >
+        <Feather name="user-plus" size={16} color="#FFFFFF" />
+        <Text style={[styles.joinBtnText, { fontFamily: "Inter_600SemiBold" }]}>Register as Professional</Text>
+      </Pressable>
+
+      <Pressable
+        style={({ pressed }) => [styles.switchBtn, { borderColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+        onPress={signOut}
+      >
+        <Feather name="log-out" size={15} color={colors.mutedForeground} />
+        <Text style={[styles.switchBtnText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>Sign out & switch account</Text>
       </Pressable>
     </View>
   );
@@ -267,9 +288,11 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, textAlign: "center" },
   retryBtn: { paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 },
   retryBtnText: { color: "#FFFFFF", fontSize: 15 },
-  workerIcon: { width: 80, height: 80, borderRadius: 24, alignItems: "center", justifyContent: "center", marginBottom: 16 },
-  notWorkerTitle: { fontSize: 22, marginBottom: 8 },
-  notWorkerText: { fontSize: 14, textAlign: "center", lineHeight: 22, marginBottom: 24 },
-  switchBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12 },
-  switchBtnText: { color: "#FFFFFF", fontSize: 15 },
+  workerIconGradient: { width: 84, height: 84, borderRadius: 26, alignItems: "center", justifyContent: "center", marginBottom: 20 },
+  notWorkerTitle: { fontSize: 22, marginBottom: 10 },
+  notWorkerText: { fontSize: 14, textAlign: "center", lineHeight: 22, marginBottom: 28 },
+  joinBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 28, paddingVertical: 14, borderRadius: 12, marginBottom: 12, width: "100%", justifyContent: "center" },
+  joinBtnText: { color: "#FFFFFF", fontSize: 15 },
+  switchBtn: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 20, paddingVertical: 12, borderRadius: 10, borderWidth: 1 },
+  switchBtnText: { fontSize: 14 },
 });

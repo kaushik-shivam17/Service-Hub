@@ -133,6 +133,26 @@ export default function LoginScreen() {
             )}
           </Pressable>
 
+          <View style={styles.divider}>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+            <Text style={[styles.dividerText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>or</Text>
+            <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
+          </View>
+
+          {/* Worker sign-in shortcut */}
+          <Pressable
+            style={({ pressed }) => [
+              styles.workerBtn,
+              { borderColor: "#059669", backgroundColor: pressed ? "#F0FDF4" : "transparent" },
+            ]}
+            onPress={() => router.push("/(auth)/worker-register")}
+          >
+            <Feather name="briefcase" size={16} color="#059669" />
+            <Text style={[styles.workerBtnText, { color: "#059669", fontFamily: "Inter_600SemiBold" }]}>
+              Join as a Professional
+            </Text>
+          </Pressable>
+
           <View style={styles.footer}>
             <Text style={[styles.footerText, { color: colors.mutedForeground, fontFamily: "Inter_400Regular" }]}>
               Don't have an account?{" "}
@@ -201,6 +221,24 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   signInBtnText: { color: "#FFFFFF", fontSize: 16 },
+  divider: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    marginVertical: -4,
+  },
+  dividerLine: { flex: 1, height: 1 },
+  dividerText: { fontSize: 13 },
+  workerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    borderWidth: 1.5,
+    borderRadius: 12,
+    paddingVertical: 14,
+  },
+  workerBtnText: { fontSize: 15 },
   footer: { flexDirection: "row", justifyContent: "center", alignItems: "center" },
   footerText: { fontSize: 14 },
   footerLink: { fontSize: 14 },

@@ -1,4 +1,4 @@
-import { db, users } from "@workspace/db";
+import { db, providers, users } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { Router } from "express";
 import { hashPassword, signToken, verifyPassword } from "../lib/auth";
@@ -11,6 +11,25 @@ const MAX_EMAIL_LEN = 254;
 const MAX_NAME_LEN = 100;
 const MAX_PHONE_LEN = 20;
 const MAX_PASSWORD_LEN = 128;
+
+const PROVIDER_COLORS = [
+  "#1A56DB", "#059669", "#D97706", "#DC2626", "#7C3AED",
+  "#0EA5E9", "#DB2777", "#92400E", "#16A34A", "#EA580C",
+];
+
+function getInitials(name: string): string {
+  return name
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map((w) => w[0]?.toUpperCase() ?? "")
+    .join("");
+}
+
+function generateProviderId(): string {
+  const rand = Math.random().toString(36).slice(2, 10);
+  return `pro_${Date.now().toString(36)}_${rand}`;
+}
 
 router.post("/register", async (req, res) => {
   const body = req.body as Record<string, unknown>;
@@ -47,12 +66,7 @@ router.post("/register", async (req, res) => {
     const passwordHash = await hashPassword(password);
     const [user] = await db
       .insert(users)
-      .values({
-        email,
-        passwordHash,
-        name,
-        phone: phone || null,
-      })
+      .values({ email, passwordHash, name, phone: phone || null })
       .returning({
         id: users.id,
         email: users.email,
@@ -69,6 +83,96 @@ router.post("/register", async (req, res) => {
     });
   } catch {
     return res.status(500).json({ error: "Registration failed. Please try again." });
+  }
+});
+
+router.post("/register/worker", async (req, res) => {
+  const body = req.body as Record<string, unknown>;
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const rawSpecs = body.specializations;
+  const specializations: string[] = Array.isArray(rawSpecs)
+    ? rawSpecs.filter((s): s is string => typeof s === "string" && s.length > 0).slice(0, 8)
+    : [];
+  const experienceYears = typeof body.experienceYears === "number" && body.experienceYears >= 0 ? Math.floor(body.experienceYears) : 1;
+  const pricePerHour = typeof body.pricePerHour === "number" && body.pricePerHour > 0 ? Math.floor(body.pricePerHour) : 200;
+
+  if (!email || !password || !name) {
+    return res.status(400).json({ error: "Email, password, and name are required" });
+  }
+  if (email.length > MAX_EMAIL_LEN || !EMAIL_RE.test(email)) {
+    return res.status(400).json({ error: "Invalid email address" });
+  }
+  if (password.length < 6) {
+    return res.status(400).json({ error: "Password must be at least 6 characters" });
+  }
+  if (password.length > MAX_PASSWORD_LEN) {
+    return res.status(400).json({ error: "Password must be at most 128 characters" });
+  }
+  if (name.length < 2 || name.length > MAX_NAME_LEN) {
+    return res.status(400).json({ error: "Name must be between 2 and 100 characters" });
+  }
+  if (phone && phone.length > MAX_PHONE_LEN) {
+    return res.status(400).json({ error: "Phone number is too long" });
+  }
+  if (specializations.length === 0) {
+    return res.status(400).json({ error: "Please select at least one specialization" });
+  }
+  if (pricePerHour < 50 || pricePerHour > 10000) {
+    return res.status(400).json({ error: "Price per hour must be between ₹50 and ₹10,000" });
+  }
+  if (experienceYears < 0 || experienceYears > 50) {
+    return res.status(400).json({ error: "Experience years must be between 0 and 50" });
+  }
+
+  try {
+    const existing = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
+    if (existing.length > 0) {
+      return res.status(409).json({ error: "An account with this email already exists" });
+    }
+
+    const providerId = generateProviderId();
+    const initials = getInitials(name);
+    const colorIndex = (name.charCodeAt(0) + name.charCodeAt(name.length - 1)) % PROVIDER_COLORS.length;
+    const color = PROVIDER_COLORS[colorIndex];
+
+    await db.insert(providers).values({
+      id: providerId,
+      name,
+      rating: 4.5,
+      reviewCount: 0,
+      experienceYears,
+      specializations,
+      pricePerHour,
+      verified: false,
+      completedJobs: 0,
+      initials,
+      color,
+    });
+
+    const passwordHash = await hashPassword(password);
+    const [user] = await db
+      .insert(users)
+      .values({ email, passwordHash, name, phone: phone || null, role: "worker", workerProviderId: providerId })
+      .returning({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        role: users.role,
+        workerProviderId: users.workerProviderId,
+      });
+
+    const token = signToken({ sub: user.id, email: user.email });
+    return res.status(201).json({
+      token,
+      user: { id: user.id, email: user.email, name: user.name, phone: user.phone, role: user.role, workerProviderId: user.workerProviderId },
+      provider: { id: providerId, name, initials, color, specializations, experienceYears, pricePerHour },
+    });
+  } catch {
+    return res.status(500).json({ error: "Worker registration failed. Please try again." });
   }
 });
 
