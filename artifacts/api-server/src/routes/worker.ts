@@ -7,16 +7,35 @@ const router = Router();
 
 router.use(authenticate);
 
+const VALID_TRANSITIONS: Record<string, string[]> = {
+  upcoming: ["in_progress", "cancelled"],
+  in_progress: ["completed"],
+};
+
+const ALL_VALID_STATUSES = new Set(
+  Object.values(VALID_TRANSITIONS).flat().concat(Object.keys(VALID_TRANSITIONS))
+);
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const NANOID_RE = /^[a-zA-Z0-9_-]{10,40}$/;
+function isValidId(id: string): boolean {
+  return UUID_RE.test(id) || NANOID_RE.test(id);
+}
+
 router.get("/me", async (req: AuthenticatedRequest, res) => {
   try {
-    const [user] = await db.select({
-      id: users.id,
-      email: users.email,
-      name: users.name,
-      phone: users.phone,
-      role: users.role,
-      workerProviderId: users.workerProviderId,
-    }).from(users).where(eq(users.id, req.userId!)).limit(1);
+    const [user] = await db
+      .select({
+        id: users.id,
+        email: users.email,
+        name: users.name,
+        phone: users.phone,
+        role: users.role,
+        workerProviderId: users.workerProviderId,
+      })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1);
     if (!user) return res.status(404).json({ error: "User not found" });
     if (user.role !== "worker") return res.status(403).json({ error: "Not a worker account" });
     return res.json({ user });
@@ -27,12 +46,17 @@ router.get("/me", async (req: AuthenticatedRequest, res) => {
 
 router.get("/bookings", async (req: AuthenticatedRequest, res) => {
   try {
-    const [user] = await db.select({ role: users.role, workerProviderId: users.workerProviderId })
-      .from(users).where(eq(users.id, req.userId!)).limit(1);
+    const [user] = await db
+      .select({ role: users.role, workerProviderId: users.workerProviderId })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1);
     if (!user || user.role !== "worker") return res.status(403).json({ error: "Not a worker account" });
     if (!user.workerProviderId) return res.json([]);
 
-    const rows = await db.select().from(bookings)
+    const rows = await db
+      .select()
+      .from(bookings)
       .where(eq(bookings.providerId, user.workerProviderId))
       .orderBy(desc(bookings.createdAt));
     return res.json(rows.map(toApi));
@@ -43,22 +67,30 @@ router.get("/bookings", async (req: AuthenticatedRequest, res) => {
 
 router.patch("/bookings/:id/status", async (req: AuthenticatedRequest, res) => {
   const id = String(req.params.id);
-  const { status } = req.body as { status: string };
+  if (!isValidId(id)) return res.status(400).json({ error: "Invalid booking ID" });
 
-  const VALID_TRANSITIONS: Record<string, string[]> = {
-    upcoming: ["in_progress", "cancelled"],
-    in_progress: ["completed"],
-  };
+  const body = req.body as Record<string, unknown>;
+  const status = typeof body.status === "string" ? body.status.trim() : "";
 
   if (!status) return res.status(400).json({ error: "status is required" });
+  if (!ALL_VALID_STATUSES.has(status)) {
+    return res.status(400).json({
+      error: `Invalid status value '${status}'. Allowed: ${[...ALL_VALID_STATUSES].join(", ")}`,
+    });
+  }
 
   try {
-    const [user] = await db.select({ role: users.role, workerProviderId: users.workerProviderId })
-      .from(users).where(eq(users.id, req.userId!)).limit(1);
+    const [user] = await db
+      .select({ role: users.role, workerProviderId: users.workerProviderId })
+      .from(users)
+      .where(eq(users.id, req.userId!))
+      .limit(1);
     if (!user || user.role !== "worker") return res.status(403).json({ error: "Not a worker account" });
     if (!user.workerProviderId) return res.status(403).json({ error: "No provider linked" });
 
-    const [booking] = await db.select().from(bookings)
+    const [booking] = await db
+      .select()
+      .from(bookings)
       .where(and(eq(bookings.id, id), eq(bookings.providerId, user.workerProviderId)))
       .limit(1);
     if (!booking) return res.status(404).json({ error: "Booking not found" });
@@ -70,9 +102,10 @@ router.patch("/bookings/:id/status", async (req: AuthenticatedRequest, res) => {
       });
     }
 
-    const [updated] = await db.update(bookings)
+    const [updated] = await db
+      .update(bookings)
       .set({ status })
-      .where(eq(bookings.id, id))
+      .where(and(eq(bookings.id, id), eq(bookings.providerId, user.workerProviderId)))
       .returning();
     return res.json(toApi(updated));
   } catch {

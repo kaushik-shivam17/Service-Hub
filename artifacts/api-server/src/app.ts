@@ -8,12 +8,22 @@ import { logger } from "./lib/logger";
 
 const app: Express = express();
 
-// Trust the Replit reverse proxy so rate limiting sees real client IPs
 app.set("trust proxy", 1);
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim())
-  : ["http://localhost:3000", "http://localhost:8080", /\.replit\.dev$/, /\.repl\.co$/, /\.vercel\.app$/];
+function buildAllowedOrigins(): (string | RegExp)[] {
+  const always: RegExp[] = [
+    /\.replit\.dev$/,
+    /\.repl\.co$/,
+    /\.vercel\.app$/,
+    /\.pike\.repl\.co$/,
+  ];
+  const fromEnv = process.env.ALLOWED_ORIGINS
+    ? process.env.ALLOWED_ORIGINS.split(",").map((o) => o.trim()).filter(Boolean)
+    : ["http://localhost:3000", "http://localhost:8080"];
+  return [...fromEnv, ...always];
+}
+
+const allowedOrigins = buildAllowedOrigins();
 
 app.use(
   helmet({
@@ -24,14 +34,29 @@ app.use(
         scriptSrc: ["'self'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", "data:", "https:"],
+        connectSrc: ["'self'", "https:"],
       },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
     },
   })
 );
 
 app.use(
   cors({
-    origin: allowedOrigins,
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const allowed = allowedOrigins.some((o) =>
+        typeof o === "string" ? o === origin : o.test(origin)
+      );
+      if (allowed) return callback(null, true);
+      const err = new Error("Not allowed by CORS") as Error & { expose?: boolean };
+      err.expose = false;
+      callback(err);
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
     credentials: true,
@@ -71,9 +96,7 @@ app.use(
         };
       },
       res(res: { statusCode: number }) {
-        return {
-          statusCode: res.statusCode,
-        };
+        return { statusCode: res.statusCode };
       },
     },
   }),
@@ -90,16 +113,27 @@ app.use((_req: Request, res: Response) => {
   res.status(404).json({ error: "Not found" });
 });
 
-app.use((err: NodeJS.ErrnoException & { status?: number; statusCode?: number; type?: string; expose?: boolean }, _req: Request, res: Response, _next: NextFunction) => {
-  const statusCode = err.status ?? err.statusCode ?? 500;
-  if (statusCode === 413) {
-    return res.status(413).json({ error: "Payload too large. Maximum size is 1MB." });
-  }
-  if (statusCode >= 400 && statusCode < 500 && err.expose) {
-    return res.status(statusCode).json({ error: err.message || "Bad request" });
-  }
-  logger.error({ err }, "Unhandled error");
-  return res.status(500).json({ error: "Internal server error" });
-});
+app.use(
+  (
+    err: NodeJS.ErrnoException & { status?: number; statusCode?: number; type?: string; expose?: boolean },
+    _req: Request,
+    res: Response,
+    _next: NextFunction,
+  ) => {
+    const statusCode = err.status ?? err.statusCode ?? 500;
+
+    if (err.message === "Not allowed by CORS") {
+      return res.status(403).json({ error: "Forbidden" });
+    }
+    if (statusCode === 413) {
+      return res.status(413).json({ error: "Payload too large. Maximum size is 1MB." });
+    }
+    if (statusCode >= 400 && statusCode < 500 && err.expose) {
+      return res.status(statusCode).json({ error: err.message || "Bad request" });
+    }
+    logger.error({ err }, "Unhandled error");
+    return res.status(500).json({ error: "Internal server error" });
+  },
+);
 
 export default app;

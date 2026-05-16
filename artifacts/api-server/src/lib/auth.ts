@@ -1,8 +1,18 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "urbanserve-dev-secret-please-change";
-const JWT_EXPIRES = "30d";
+function getJwtSecret(): string {
+  const secret = process.env.JWT_SECRET;
+  if (secret) return secret;
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("JWT_SECRET environment variable must be set in production. Never use a fallback secret in production.");
+  }
+  console.warn("[WARN] JWT_SECRET is not set — using insecure dev fallback. Set JWT_SECRET before deploying.");
+  return "urbanserve-dev-secret-change-before-production";
+}
+
+const JWT_SECRET = getJwtSecret();
+const JWT_EXPIRES = "7d";
 
 export function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, 12);

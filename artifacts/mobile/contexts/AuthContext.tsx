@@ -34,16 +34,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const token = await getToken();
-        if (!token) { setLoading(false); return; }
-        // Try to restore from cache first for instant UI
+        if (!token) {
+          setLoading(false);
+          return;
+        }
         const cached = await AsyncStorage.getItem(USER_CACHE_KEY);
-        if (cached) setUser(JSON.parse(cached));
-        // Then verify with server
+        if (cached) {
+          try {
+            setUser(JSON.parse(cached));
+          } catch {
+            await AsyncStorage.removeItem(USER_CACHE_KEY);
+          }
+        }
         const { user: serverUser } = await api.auth.me();
         setUser(serverUser);
         await AsyncStorage.setItem(USER_CACHE_KEY, JSON.stringify(serverUser));
       } catch {
-        // Token invalid/expired — clear it
         await clearToken();
         await AsyncStorage.removeItem(USER_CACHE_KEY);
         setUser(null);
@@ -53,28 +59,45 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
-  const signIn = async (email: string, password: string) => {
-    const { token, user: apiUser } = await api.auth.login(email, password);
+  const signIn = async (email: string, password: string): Promise<void> => {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !password) {
+      throw new Error("Email and password are required");
+    }
+    const { token, user: apiUser } = await api.auth.login(trimmedEmail, password);
     await saveToken(token);
     await AsyncStorage.setItem(USER_CACHE_KEY, JSON.stringify(apiUser));
     setUser(apiUser);
   };
 
-  const signUp = async (email: string, password: string, name: string, phone?: string) => {
-    const { token, user: apiUser } = await api.auth.register({ email, password, name, phone });
+  const signUp = async (email: string, password: string, name: string, phone?: string): Promise<void> => {
+    const trimmedEmail = email.trim().toLowerCase();
+    const trimmedName = name.trim();
+    if (!trimmedEmail || !password || !trimmedName) {
+      throw new Error("Email, password, and name are required");
+    }
+    const { token, user: apiUser } = await api.auth.register({
+      email: trimmedEmail,
+      password,
+      name: trimmedName,
+      phone: phone?.trim(),
+    });
     await saveToken(token);
     await AsyncStorage.setItem(USER_CACHE_KEY, JSON.stringify(apiUser));
     setUser(apiUser);
   };
 
-  const signOut = async () => {
-    await clearToken();
-    await AsyncStorage.removeItem(USER_CACHE_KEY);
-    setUser(null);
+  const signOut = async (): Promise<void> => {
+    try {
+      await clearToken();
+      await AsyncStorage.removeItem(USER_CACHE_KEY);
+    } finally {
+      setUser(null);
+    }
   };
 
-  const updateProfile = async (updates: Partial<UserProfile>) => {
-    if (!user) return;
+  const updateProfile = async (updates: Partial<UserProfile>): Promise<void> => {
+    if (!user) throw new Error("Not authenticated");
     const { user: updated } = await api.auth.updateProfile(updates);
     setUser(updated);
     await AsyncStorage.setItem(USER_CACHE_KEY, JSON.stringify(updated));

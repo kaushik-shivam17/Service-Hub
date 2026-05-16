@@ -60,8 +60,8 @@ export default function RegisterScreen() {
     try {
       await signUp(email.trim().toLowerCase(), password, name.trim(), phone.trim() || undefined);
       router.replace("/(tabs)");
-    } catch {
-      setError("Registration failed. Please check your details and try again.");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Registration failed. Please check your details and try again.");
     } finally {
       setLoading(false);
     }
@@ -125,7 +125,7 @@ export default function RegisterScreen() {
                 <Feather name="lock" size={16} color={colors.mutedForeground} />
                 <TextInput
                   style={[styles.input, { color: colors.text, fontFamily: "Inter_400Regular" }]}
-                  placeholder="Min. 6 characters"
+                  placeholder="Min. 8 characters"
                   placeholderTextColor={colors.mutedForeground}
                   value={password}
                   onChangeText={setPassword}
